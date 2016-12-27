@@ -1,0 +1,31 @@
+projectDir = "/Users/smallwes/develop/academic/coursera/datascience/c10-capstone/"
+
+dataDir   <- paste0( projectDir, "data/")
+funcDir   <- paste0( projectDir, "functions/")
+wkDir <- paste0( projectDir, "")
+setwd(wkDir)
+
+# LOAD QUIZZER FUNCTIONALITY
+source(paste0(funcDir, "quizzer.R"))
+
+quizzer(q2,1)
+quizzer(q2,2)
+quizzer(q2,3)
+quizzer(q2,4)
+quizzer(q2,5)
+quizzer(q2,6)
+quizzer(q2,7)
+quizzer(q2,8)
+quizzer(q2,9)
+quizzer(q2,10)
+
+quizzer(q3,1)
+quizzer(q3,2)
+quizzer(q3,3)
+quizzer(q3,4)
+quizzer(q3,5)
+quizzer(q3,6)
+quizzer(q3,7)
+quizzer(q3,8)
+quizzer(q3,9)
+quizzer(q3,10)

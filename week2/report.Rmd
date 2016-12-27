@@ -1,0 +1,291 @@
+---
+title: 'Typeahead Predictor Tool: Exploratory Analysis Milestone'
+author: "Wesley Small (smallwesley)"
+date: "September 3, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+The **Typeahead Predictor** is a feature which suggest the next possible word as a user types into a text areas in applications, such as a search bar or any space while using a keyboard (physical or virtual on mobile devices) Providing highly correlated next-word suggestions makes a user's interaction while typing in their devices much faster.  Smart keyboards are based on predictive text models, which are trained by a corpus of unstructured free speach documents. 
+
+As we enter the initial exploratory milestone phase, we analyzing a specific corpus of text documents review discover the structure in the data and how words are put together. This phase will including the necessary preprocessing of our dataset with cleaning using a variety of text mining tools provided in our R libraries/packages structure.
+
+Numerous preprocessing techniques are drawn from this material: *"[Text Mining Infrastructure in R](https://www.jstatsoft.org/article/view/v025i05)"*	by Ingo Feinerer, Kurt Hornik and David Meyer. (https://www.jstatsoft.org/article/view/v025i05).
+
+* * *
+
+# Configuration
+
+In order to proceed with our evaluation of the dataset files, we have some necessary housekeeping here:
+
+```{r echo=TRUE, eval=TRUE}
+set.seed("4789")
+setwd("/Users/smallwes/develop/academic/coursera/datascience/c10-capstone/week2/")
+```
+
+```{r echo=TRUE, eval=TRUE}
+usePackage<-function(p){
+  # load a package if installed, else load after installation.
+  # Args: p: package name in quotes
+  if (!is.element(p, installed.packages()[,1])){
+    #print(paste('Package:',p,'Not found, Installing Now...'))
+    suppressMessages(install.packages(p, dep = TRUE))
+  }
+  #print(paste('Loading Package :',p))
+  require(p, character.only = TRUE)  
+}
+```
+
+Loading Libraries Here: tm, RWeka, ggplot2, dplyr, stringi, png, grid...
+```{r eval=TRUE, echo=FALSE}
+usePackage("tm")   
+usePackage("RWeka")
+usePackage("SnowballC")
+usePackage("ggplot2")
+usePackage("dplyr")
+usePackage("stringi")
+usePackage("png")
+usePackage("grid")
+```
+
+* * *
+
+# Exploratory Analysis
+
+The dataset archive used has the source anaylzing and making typeahead predictions, was obtained at this resource: (https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip)
+
+It has been downloaded, uncompressed.  The following path indicate how we can access the various US English based files for this initial assessment.
+
+```{r echo=TRUE, eval=TRUE}
+dataBaseFilePath   <- "/Users/smallwes/develop/academic/coursera/datascience/c10-capstone/data/"
+enUSBaseFilePath    <- paste0( dataBaseFilePath, "final/en_US/" )
+enUSBlogsFilename   <- "en_US.blogs.txt"
+enUSBlogsFilepath   <- paste0( enUSBaseFilePath, enUSBlogsFilename ) 
+enUSNewsFilename    <- "en_US.news.txt"
+enUSNewsFilepath    <- paste0( enUSBaseFilePath, enUSNewsFilename )
+enUSTwitterFilename <- "en_US.twitter.txt"
+enUSTwitterFilepath <- paste0( enUSBaseFilePath, enUSTwitterFilename )
+
+dBlogs    <- readLines( enUSBlogsFilepath, encoding = "UTF-8", skipNul = TRUE )
+dNews     <- readLines( enUSNewsFilepath, encoding = "UTF-8", skipNul = TRUE )
+dTwitter  <- readLines( enUSTwitterFilepath, encoding = "UTF-8", skipNul = TRUE )
+```
+
+We use the following logic to build a table for reviewing some basic features of the documents:
+
+```{r echo=FALSE, eval=TRUE}
+getDatasetFileSummaryRow <- function(key, path, data) {
+  i <- stri_stats_latex(data)
+  r <- c(key, 
+         as.character( round(file.info(path)$size / 1024^2, 1)), 
+         as.character( formatC( length(data), format="d", big.mark=',') ), 
+         as.character( formatC( i["Words"], format="d", big.mark=',') ),
+         as.character( formatC( max(nchar(data))), format="d", big.mark=',') )
+  d <- data.frame(as.list(r), stringsAsFactors=F)
+  names(d) <- c("KY","SZ","LN","WL","LG")
+  d
+}
+
+summaryDataset <- data.frame( KY = character(), SZ = character(), LN = character(), WL = character(),LG = character(), stringsAsFactors = FALSE)
+summaryDataset <- bind_rows(summaryDataset, getDatasetFileSummaryRow( enUSBlogsFilename, enUSBlogsFilepath, dBlogs) )
+summaryDataset <- bind_rows(summaryDataset, getDatasetFileSummaryRow( enUSNewsFilename, enUSNewsFilepath, dNews) )
+summaryDataset <- bind_rows(summaryDataset, getDatasetFileSummaryRow( enUSTwitterFilename, enUSTwitterFilepath, dTwitter) )
+names(summaryDataset) <- c("Text File", "Size (MB)", "No. of Lines", "No. of Words","Longest Line Length")
+knitr::kable(summaryDataset, format = "markdown")
+```
+
+Upon a physical scan of each file, we notice that there are many issues we must deal with to have a clean subset to act upon for our prediction.  We notice profanity and complex character set that are non-english words. These will need to be removed. Here a demonstration with removal of complex characters and non-english using the iconv function.
+
+#### From en_US.blogs.txt:
+
+```{r fig.width=7, fig.height=2,echo=FALSE}
+img <- readPNG("figures/figure1.png")
+grid.raster(img)
+dBlogs[1606]
+iconv(dBlogs, "UTF-8", "ASCII", sub="")[1606]
+```
+
+#### From en_US.twitter.txt:
+
+```{r fig.width=6, fig.height=1,echo=FALSE}
+img <- readPNG("figures/figure2.png")
+grid.raster(img)
+dTwitter[253]
+iconv(dTwitter, "UTF-8", "ASCII", sub="")[253]
+```
+
+##### Creation of Corpus
+
+To provide a uniform heterogeneous way of accessing the root TEXT of a document to perform text mining work, regardless of file location, internal annotations and other features unique to the document, we load up the text document(s) into a **"CORPUS"** from various **sources**.
+
+```{r echo=TRUE, eval=TRUE}
+# FUNCTION: LOAD SINGLE DATASET FILE - OPPOSED TO DIRSOURCE
+getSingleFileCorpus <- function( filename ) {
+  VCorpus( VectorSource( paste(readLines(file( filename )) ,collapse="\n") ), list(reader = readPlain) )
+} 
+```
+
+Examples of loading single or full corpus of data.
+```{r echo=TRUE, eval=FALSE}
+corpusBlogs <- getSingleFileCorpus( enUSBlogsFilepath )
+inspect(corpusBlogs)
+rm("corpusBlogs")
+```
+
+```{r echo=TRUE, eval=FALSE}
+corpusFull  <- Corpus( DirSource(enUSBaseFilePath), readerControl = list(reader=readPlain, language="en_US") )
+inspect(corpusFull)
+rm("corpusFull")
+```
+
+#### LOAD DATA SUBSET - 3% SAMPLING OF EACH DATASET FILE FOR ENGLISH_US.
+```{r echo=TRUE, eval=TRUE}
+subsetPercentage <- 0.03
+getDataSubset <- function( df, sp = subsetPercentage ) { sample(df, length(df) * sp )  }
+dCombinedDataSubset <- c( getDataSubset( dBlogs ), getDataSubset( dNews ), getDataSubset( dTwitter ) )
+filenameCombinedDataSubset <- paste0( dataBaseFilePath, "en_US.combined_subset.txt" )
+if (file.exists(filenameCombinedDataSubset)) file.remove(filenameCombinedDataSubset)
+fileCombinedDataSubset <- file(filenameCombinedDataSubset)
+writeLines(dCombinedDataSubset, fileCombinedDataSubset)
+close(fileCombinedDataSubset)
+corpusCombinedDataSubset <- getSingleFileCorpus( filenameCombinedDataSubset )
+```
+
+Without some optimizations (parallelization), processing the full set of text documents takes quiet a bit horsepower and time. It has been observed with taking a subset of each traning dataset file allows us to gain some insight in the distribution of most-used words, and being the anaylsis of term vection/frequencies. In addition look into n-gram distribution.
+
+The reduced **corpusCombinedDataSubset** will be used below in futher examples.  It contains a 3 percent of each dataset file combined into on.  Continued effort when preparing the predictor will be used to anaylze the as much (or all 100%) of the data provided where possible.
+
+* * *
+
+# Text Mining Preprocessing
+
+The R package tm for "text mining" has useful functions for processing text. 
+It can lowercases document text making words equal from that perspective. It removes punctuation, but 
+it can also remove stopwords, specifically eliminate words such as "in", "the", "a", "of", "and", etc.
+It has stemming feature, which is performs like lemmatization, however, it drops off what might be considered an affix to help equate the root words.
+
+
+#### LOAD BANNED SWEAR WORD LIST
+
+Note: The bad swear words list was obtain from this resource: (http://www.bannedwordlist.com/). It has been augment to 730+ profane words.
+
+```{r echo=TRUE, eval=TRUE}
+bannedWordList <- readLines( paste0( dataBaseFilePath, "swearWords.txt" ) )
+```
+
+#### FUNCTION: GET CORPUS PREPROCESSED
+
+This **getCorpusPreprocessed** function encapsulates the tasks performed to preprocess our various corpus.
+
+
+```{r echo=TRUE, eval=TRUE}
+getCorpusPreprocessed <- function( dCorpus ) {
+  
+  # TRANSFORM TO LOWERCASE
+  dCorpus <- tm_map( dCorpus, tolower )
+  
+  # STRIP UNNECESSARY ITEMS
+  dCorpus <- tm_map( dCorpus, stripWhitespace )
+  dCorpus <- tm_map( dCorpus, removeNumbers )
+  dCorpus <- tm_map( dCorpus, removePunctuation )
+  
+  # REMOVE BANNED, HIGHLY COMPLEX, NON-ENGLISH AND STOPWORDS
+  dCorpus <- tm_map( dCorpus, function(x) iconv(x, "UTF-8", "ASCII", sub="") )
+  dCorpus <- tm_map( dCorpus, removeWords, bannedWordList )  # PROFRANITY FILTER
+  dCorpus <- tm_map( dCorpus, removeWords, stopwords("english") ) 
+  
+  # STEMMING ( WORD ROOT )
+  dCorpus <- tm_map( dCorpus, stemDocument )
+  
+  # ENSURE PLAIN TEXT DOCUMENT
+  dCorpus <- tm_map( dCorpus, PlainTextDocument )  
+  
+  customRemoveStopWords <- function(x) removeWords( x, stopwords("english") )
+  customRemoveBannedWords <- function(x) removeWords( x, bannedWordList )
+  customRemoveUnknownContent <- function(x) iconv(x, "UTF-8", "ASCII", sub="")
+
+  dCorpus # RETURN FILTERED CORPUS!
+}
+
+```
+
+#### Perform Preprocessing operation
+
+```{r echo=TRUE, eval=TRUE}
+corpusComboPP <- getCorpusPreprocessed( corpusCombinedDataSubset )
+inspect( corpusComboPP )
+```
+
+### Tokenization of Corpus
+
+The next part of the analysis is to attempt tokenization in order to help with the production of n-grams.  N-grams are these contiguous sequence of n items (1 = unigram, 2 = bigram and 3 = trigram, etc) pull from our Corpus.
+
+
+#### Term Matrix Processing
+
+The following produces a matrix system that describes the frequency of terms that occurs in our Combo Corpus.
+
+```{r echo=TRUE, eval=TRUE}
+corpusComboTDM  <- TermDocumentMatrix( corpusComboPP )
+corpusComboTDMx <- as.matrix( corpusComboTDM )
+
+frequencyCombo <- rowSums(corpusComboTDMx)
+frequencyCombo <- sort(frequencyCombo, decreasing = TRUE)[1:100]
+#names(frequencyCombo)
+```
+
+#### Plot of Frequent Single Terms from Combo Corpus:
+
+```{r echo=TRUE, eval=TRUE}
+barplot(head(frequencyCombo,25),main="Combo Corpus: Highest Word Frequency (Top 25)", ylab = "Frequency", col = "orange", las = 2)
+```
+
+#### N-Gram Processing
+
+Issue working with this on my macbook wasn't solvable. This error occured on a Macbook running Java 8.
+
+*  java.lang.UnsupportedClassVersionError: weka/core/tokenizers/NGramTokenizer : Unsupported major.minor version 51.0 *
+
+```{r echo=TRUE, eval=TRUE}
+#bigram   <- NGramTokenizer(corpusComboPP, Weka_control(min = 2, max = 2))
+#trigram  <- NGramTokenizer(corpusComboPP, Weka_control(min = 3, max = 3))
+```
+
+Tested out a alternative workaound found in stackover flow and discussion groups.  Using the corpusComboPP I created, I tested out this code:
+
+```{r echo=TRUE, eval=TRUE}
+freq_df <- function(tdm){
+  freq <- sort(rowSums(as.matrix(tdm)), decreasing=TRUE)
+  freq_df <- data.frame(word=names(freq), freq=freq)
+  return(freq_df)
+}
+
+TrigramTokenizer <-
+  function(x)
+    unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+    
+trigram <- removeSparseTerms(TermDocumentMatrix(corpusComboPP, control = list(tokenize = TrigramTokenizer)), 0.9999)
+trigram_freq <- freq_df(trigram)
+```
+
+We can take a peak at the top 25 tri-grams produced using this functionality:
+
+```{r echo=TRUE, eval=TRUE}
+knitr::kable(trigram_freq[1:25,], format = "markdown")
+```
+
+
+# Final Remarks & Next Steps
+
+When using a full set of documents ( the complete corpus ), we find it is a lengthy and intense pre-processing stage. Attempts to reduce the corpus to a subset sample from 50% down to 3% occured to help generate a sample that couple be created in a reason time frame.  There are possibly features of R multithreading and parallization that will need to be investigated further to speed up the processing.  
+We do see from even a 3% subset sampling of the data, that there are tremendous set of terms that are produced, that can can derive frequency of most used words.  
+
+### Next?
+
+The next phase of the project will be to continue optimizing how to get a clean set of terms.  More work is necessary to solve the Bigram and Trigram creation process. The is an important investigation on how the subroutines to get next word with the R feature, however, mainly start to work on the prediction algorithm.
+
