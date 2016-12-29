@@ -1,15 +1,21 @@
 library(shiny)
+library(shinythemes)
 
 shinyUI(
   
   # DEFINE PAGE STYLE
-  fluidPage(
+  ui = fluidPage( 
+    theme = shinytheme("slate"),
     
+    # TITLE
     titlePanel("Typeahead Next-Word Predictor"),
     
-    # TITLE BAR SECTION
+    # TEST THEMES
+    #shinythemes::themeSelector(),
+    
+    # TOP BAR CONTENT
     fluidRow(
-      (column 
+      column 
         (width = 12, 
         offset = 0,
         style='padding:18px;',
@@ -17,7 +23,7 @@ shinyUI(
         p("This application demonstrates typeahead/next-word predictions derived from an extensive N-GRAM anaylsis of text documents."),
         p("Match a n-word character string with the appropriate n+1 gram entry in the N-gram Frequency Table. For example, a two-word string should be matched with its corresponding entry in a tri-gram table. If there is a match, propose high frequency words to the user. Continuing the previous example, a match should be the last word of the n-gram.")
         )
-      )
+      
     ), # fluidRow()
     
     # DEFINE LAYOUT
@@ -25,11 +31,11 @@ shinyUI(
       
       # SIDE BAR
       sidebarPanel(
-        p("BACKGROUND: "),
-        p("For this particular applications, I have modeled set of N-Grams (unigrams to quintgram) 
+        h5("BACKGROUND: "),
+        p("For this particular application, I have modeled set of N-Grams (unigrams to quintgram) 
           from a given body Blogs posts, News articles and Twitter posts."),
         hr(),  
-        p(" n-gram model we only use a random-subset (2%) of the entire corpus. 
+        p(" n-gram model we only use a random-subset (5%) of the entire corpus. 
           Using text operations, we tidy this text to ensure we only have word features devoid of 
           unecessary nonalpha & non ASCII characters."),
         hr(),
@@ -40,19 +46,39 @@ shinyUI(
 
       # MAIN PANEL
       mainPanel(
-        h4("INSTRUTIONS:"),
+        h5("INSTRUTIONS:"),
         p("Type words/sentence within the text-field below. 
            Click the \"PREDICT\" button. 
-           Next word terms will appear in the select-input control."),
-        fluidRow(
-          column(6,textInput("sentenceInput",label="")),
-          column(4,uiOutput("sentenceTokens"))
-        ),
+           The predicted word terms will appear in the combo dropdown box."),
+        textInput("sentenceInput",label=""),
+        tags$head(tags$style(type="text/css", "#sentenceInput {width: 550px}")),
+        uiOutput("sentenceTokens"),
+        tags$head(tags$style(type="text/css", "#token {width: 550px}")),
         submitButton("PREDICT"),
         hr(),
-        h5("PREDICTION DETAIL:"),
-        div( uiOutput("predictions", align="center"))
         
+        fluidRow(
+          column( 
+            width = 10,
+            offset = 0,
+            style='padding:18px;',
+            h5("PREDICTION CLASS DEBUG: ")
+          ),
+          column( 
+            width = 5,
+            offset = 0,
+            style='padding:18px;',
+            
+            uiOutput("predictionInput", align="left"),
+            uiOutput("predictionAbstract", align="left")
+          ),
+          column( 
+            width = 5,
+            offset = 0,
+            style='padding:18px;',
+            uiOutput("predictions", align="right")
+          )
+        )
       ) # mainPanel()
       
     ) # sidebarLayout()

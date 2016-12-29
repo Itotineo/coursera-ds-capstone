@@ -1,3 +1,8 @@
+# -----------------------------------------------
+# !!!!!!!!!
+# THIS PREDICT.R SCRIPT IS DEPRECATED -> MOVED TO SHINY_PREDICTOR FOR APPLICATION USAGE
+# !!!!!!!!!
+# -----------------------------------------------
 projectDir = "/Users/smallwes/develop/academic/coursera/datascience/c10-capstone/"
 dataDir   <- paste0( projectDir, "data/")
 funcDir   <- paste0( projectDir, "functions/")
@@ -45,7 +50,9 @@ setClass("Prediction", representation(input = "character", output = "data.frame"
 # FUNC -> DO-PREDICT
 doStupidBackOffPredict <- function ( sentence ) {
   debug <- c("")
+  sentence <- gsub("[^[:alpha:][:space:]'-]","" ,sentence)
   sentence <- tolower(Trim(clean(sentence)))
+  print(paste0("<SENTENCE> POST-CLEAN: ", sentence))
   
   # VALIDATE INPUT 
   if ( nchar(sentence) == 0 ) {

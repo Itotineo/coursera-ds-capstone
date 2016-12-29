@@ -1,3 +1,9 @@
+# ---------------------------------------------------------------------
+# PREDICT.R
+# Primary method to predict next words from a set of pre-created ngram lookups.
+# author: smallwesley
+# ---------------------------------------------------------------------
+
 projectDir = ""
 dataDir   <- paste0( projectDir, "data/")
 funcDir   <- paste0( projectDir, "")
@@ -5,6 +11,7 @@ funcDir   <- paste0( projectDir, "")
 # LOAD PACKAGES 
 library("qdap")
 library("data.table")
+library("tictoc")
 
 # LOAD NGRAM DATAFRAMES
 dfGrams1 <- fread(paste0( dataDir, "en_US.combined_grams_1.csv" ))
@@ -32,19 +39,25 @@ debugScoring <- function( x, ngram.level, term, base, term.freq, ngram.count, ng
 
 # CREATE CLASS WRAPPING A PREDICTION RESULT
 # S3 setClass("Prediction", slots = list(input = "character", output = "data.frame", debug = "character", error = "character"))
-setClass("Prediction", representation(input = "character", output = "data.frame", debug = "character", error="character"))
+setClass("Prediction", representation(input = "character", output = "data.frame", abstract = "character", debug = "character", error="character"))
 
 # ------------------------------------------------------
 # FUNC -> DO-PREDICT
-doStupidBackOffPredict <- function ( sentence ) {
+doStupidBackOffPredict <- function ( input ) {
+  #print(paste0("<ENTER> doStupidBackOffPredict: ", sentence))
   debug <- c("")
-  sentence <- tolower(Trim(clean(sentence)))
+  
+  # INITIAL CLEAN UP OF SENTENCE
+  #sentence <- gsub("[^[:alpha:][:space:]'-]","" ,sentence)
+  #sentence <- tolower(Trim(clean(sentence)))
+  sentence <-cleanseText(input)
+  #print(paste0("<SENTENCE> POST-CLEAN: ", sentence))
   
   # VALIDATE INPUT 
   if ( nchar(sentence) == 0 ) {
     emptyOutput <- data.frame(empty=character(),stringsAsFactors=FALSE)
-    errMsg <- "The sentence is empty"
-    return (new ("Prediction", input = sentence, output = emptyOutput , debug = debug, error=errMsg))
+    errMsg <- "After anaylzing your input, it's deemed not valid for processing."
+    return (new ("Prediction", input = input, output = emptyOutput, abstract = "", debug = debug, error=errMsg))
   }
 
   # INNER FUNCTION -> GET NGRAM PREDICTION SET
@@ -138,6 +151,6 @@ doStupidBackOffPredict <- function ( sentence ) {
   }
   
   # RETURN PREDICTION OBJECT
-  oPrediction <- new ("Prediction", input = sentence, output = output, debug = debug, error = "")
+  oPrediction <- new ("Prediction", input = input, output = output, abstract = sentence, debug = debug, error = "")
   oPrediction
 }
