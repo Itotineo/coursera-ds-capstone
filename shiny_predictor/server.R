@@ -1,4 +1,6 @@
 library(shiny)
+library(shinythemes)
+#library(googleVis)
 
 projectDir = ""
 dataDir   <- paste0( projectDir, "data/")
@@ -12,16 +14,17 @@ shinyServer(function(input, output, session) {
   # ---------------------------
   # SET HANDLE REACTIVE INPUT 
   executePrediction <- reactive({
-    # PERFORM PREDICTION BASED ON INPUT
     
-    if ( !is.null(input$token) && nchar(input$token ) > 0 ) {
-      combinedText <- paste(input$sentenceInput, input$token)
-      #print(combinedText)
-      updateTextInput(session,"sentenceInput", label = "", value = combinedText)
+    # PERFORM PREDICTION BASED ON INPUT
+    searchText <- input$sentenceInput 
+      
+    if ( !is.null(input$token) && nchar(input$token) > 0 && !(input$token == "{predictions-below}") ) {
+      searchText <- paste(input$sentenceInput, input$token)
+      updateTextInput(session,"sentenceInput", label = "", value = searchText)
     }
     
-    if ( nchar(input$sentenceInput ) > 0 )
-      doStupidBackOffPredict( input$sentenceInput )
+    if ( nchar( searchText ) > 0 )
+      doStupidBackOffPredict( searchText )
     else 
       ""
   })
@@ -39,7 +42,7 @@ shinyServer(function(input, output, session) {
       if( nrow(predictionDF@output) == 0) {
         selectInput('token', '', c(""))
       } else {
-        selectInput('token', '', c(predictionDF@output$token,""))
+        selectInput('token', '', c("{predictions-below}",predictionDF@output$token))
       }
     }
   }) # renderUI() 
@@ -71,7 +74,13 @@ shinyServer(function(input, output, session) {
   output$predictionsTable <- renderTable({
     predictionDF <- executePrediction()
     predictionDF@output
-  }) # renderTable()
+  }, digit = 5) # renderTable()
+  
+  #output$predictionsTable <- renderGvis({
+  #  predictionDF <- executePrediction()
+  #  predictionDF@output
+  #  gvisTable(predictionDF@output);
+  #})
 
   # D: PREDICTION ORIGINAL TEXT
   output$predictionInput <- renderUI({

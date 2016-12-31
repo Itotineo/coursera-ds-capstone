@@ -147,8 +147,10 @@ doStupidBackOffPredict <- function ( input ) {
   
   # SUBSET NUMBER OF PREDICTIONS TO RETURN
   if (nrow(output) == 0) {
-    output <- head(subGrams1, 5)
+    output <- subset(head(subGrams1, 5), select=c("token", "score", "ngram"))
   }
+  
+  output <- output[, score:=as.character(score)]
   
   # RETURN PREDICTION OBJECT
   oPrediction <- new ("Prediction", input = input, output = output, abstract = sentence, debug = debug, error = "")

@@ -1,5 +1,6 @@
 library(shiny)
 library(shinythemes)
+library(googleVis)
 
 shinyUI(
   
@@ -61,13 +62,13 @@ shinyUI(
           column( 
             width = 10,
             offset = 0,
-            style='padding:18px;',
+            style='padding:1px;',
             h5("PREDICTION CLASS DEBUG: ")
           ),
           column( 
             width = 5,
             offset = 0,
-            style='padding:18px;',
+            style='padding:1px;',
             
             uiOutput("predictionInput", align="left"),
             uiOutput("predictionAbstract", align="left")
@@ -75,7 +76,7 @@ shinyUI(
           column( 
             width = 5,
             offset = 0,
-            style='padding:18px;',
+            style='padding:1px;',
             uiOutput("predictions", align="right")
           )
         )
